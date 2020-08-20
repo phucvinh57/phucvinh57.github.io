@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">To-do List</string>
+    <string name="help">Help</string>
+    <string name="about">About</string>
+    <string name="FB">Facebook</string>
+    <string name="Github">Github</string>
+    <string name="_default">Mặc định</string>
+    <string name="personal">Cá nhân</string>
+    <string name="work">Làm việc</string>
+    <string name="favorite">Yêu thích</string>
+    <string name="shopping">Mua sắm</string>
+    <string name="completed">Đã hoàn thành</string>
+    <string name="navigation_drawer_open" translatable="false">Open navigation drawer</string>
+    <string name="navigation_drawer_close" translatable="false">Close navigation drawer</string>
+</resources>
