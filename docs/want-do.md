@@ -6,9 +6,9 @@
 - Learning English
 - Implement a portfolio in React. Features:
   - Write a series of sharing
-  - Personal information
+  - About me
   - Career timeline
-  - Social media
+  - Contact
   - Projects
   - Organizations
 - Learning AI
