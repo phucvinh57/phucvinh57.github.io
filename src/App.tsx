@@ -1,9 +1,9 @@
 function App() {
-  return (
-    <div>
-      Hello World
-    </div>
-  )
+	return (
+		<div>
+			<button className="btn">Button</button>
+		</div>
+	);
 }
 
-export default App
+export default App;
