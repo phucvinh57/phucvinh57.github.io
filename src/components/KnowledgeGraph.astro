@@ -9,6 +9,18 @@ const { graph } = Astro.props;
 const graphJson = JSON.stringify(graph).replace(/</g, '\\u003c');
 const noteLabel = graph.stats.postCount === 1 ? 'post' : 'posts';
 const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
+const graphSummary = `${graph.stats.postCount} ${noteLabel}, ${graph.stats.categoryCount} categories, and ${graph.stats.linkCount} ${linkLabel}`;
+const legendItems = [
+  { label: 'Notes', colorClass: 'bg-blue-600' },
+  { label: 'Categories', colorClass: 'bg-emerald-600' },
+  graph.stats.referenceCount > 0
+    ? { label: 'References', colorClass: 'bg-amber-500' }
+    : null,
+].filter((item): item is { label: string; colorClass: string } => Boolean(item));
+const compactControlClass =
+  'group flex size-6 items-center justify-center rounded-md border border-black/15 bg-stone-100/90 text-current shadow-sm backdrop-blur transition-colors duration-300 hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 dark:border-white/20 dark:bg-stone-900/90 dark:hover:bg-stone-800 dark:hover:text-white dark:focus-visible:ring-white/35';
+const dialogControlClass =
+  'group flex size-8 items-center justify-center rounded-md border border-black/15 bg-white/70 text-current transition-colors duration-300 hover:bg-black/5 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/35';
 ---
 
 <section data-knowledge-graph-shell class="animate space-y-4">
@@ -17,8 +29,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
       Knowledge graph
     </h2>
     <p class="text-sm leading-6">
-      {graph.stats.postCount} {noteLabel}, {graph.stats.categoryCount} categories,
-      and {graph.stats.linkCount} {linkLabel}.
+      {graphSummary}.
     </p>
   </div>
 
@@ -48,7 +59,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
           data-graph-dialog-open
           type="button"
           aria-label="Open wider graph view"
-          class="group flex size-6 items-center justify-center rounded-md border border-black/15 bg-stone-100/90 text-current shadow-sm backdrop-blur transition-colors duration-300 hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 dark:border-white/20 dark:bg-stone-900/90 dark:hover:bg-stone-800 dark:hover:text-white dark:focus-visible:ring-white/35"
+          class={compactControlClass}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -67,7 +78,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
           data-graph-reset
           type="button"
           aria-label="Reset graph view"
-          class="group flex size-6 items-center justify-center rounded-md border border-black/15 bg-stone-100/90 text-current shadow-sm backdrop-blur transition-colors duration-300 hover:bg-white hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 dark:border-white/20 dark:bg-stone-900/90 dark:hover:bg-stone-800 dark:hover:text-white dark:focus-visible:ring-white/35"
+          class={compactControlClass}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -83,22 +94,12 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
 
       <div class="pointer-events-none absolute inset-x-3 bottom-2 z-10 text-[0.7rem]">
         <ul class="flex flex-wrap gap-x-2.5 gap-y-1.5" aria-label="Graph legend">
-          <li class="flex items-center gap-1">
-            <span class="size-2 rounded-full bg-blue-600"></span>
-            Notes
-          </li>
-          <li class="flex items-center gap-1">
-            <span class="size-2 rounded-full bg-emerald-600"></span>
-            Categories
-          </li>
-          {
-            graph.stats.referenceCount > 0 && (
-              <li class="flex items-center gap-1">
-                <span class="size-2 rounded-full bg-amber-500" />
-                References
-              </li>
-            )
-          }
+          {legendItems.map((item) => (
+            <li class="flex items-center gap-1">
+              <span class:list={['size-2 rounded-full', item.colorClass]}></span>
+              {item.label}
+            </li>
+          ))}
         </ul>
       </div>
     </div>
@@ -118,8 +119,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
             Knowledge graph
           </h2>
           <p class="max-w-xl text-sm leading-6">
-            {graph.stats.postCount} {noteLabel}, {graph.stats.categoryCount} categories,
-            and {graph.stats.linkCount} {linkLabel} in the blog.
+            {graphSummary} in the blog.
           </p>
         </div>
 
@@ -140,7 +140,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
               data-graph-reset
               type="button"
               aria-label="Reset graph view"
-              class="group flex size-8 items-center justify-center rounded-md border border-black/15 bg-white/70 text-current transition-colors duration-300 hover:bg-black/5 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/35"
+              class={dialogControlClass}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -157,7 +157,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
               data-graph-dialog-close
               type="button"
               aria-label="Close wider graph view"
-              class="group flex size-8 items-center justify-center rounded-md border border-black/15 bg-white/70 text-current transition-colors duration-300 hover:bg-black/5 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 dark:border-white/20 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:ring-white/35"
+              class={dialogControlClass}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -195,22 +195,12 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
 
         <div class="pointer-events-none absolute inset-x-4 bottom-4 z-10 text-sm">
           <ul class="flex flex-wrap gap-x-4 gap-y-2" aria-label="Graph legend">
-            <li class="flex items-center gap-2">
-              <span class="size-2.5 rounded-full bg-blue-600"></span>
-              Notes
-            </li>
-            <li class="flex items-center gap-2">
-              <span class="size-2.5 rounded-full bg-emerald-600"></span>
-              Categories
-            </li>
-            {
-              graph.stats.referenceCount > 0 && (
-                <li class="flex items-center gap-2">
-                  <span class="size-2.5 rounded-full bg-amber-500" />
-                  References
-                </li>
-              )
-            }
+            {legendItems.map((item) => (
+              <li class="flex items-center gap-2">
+                <span class:list={['size-2.5 rounded-full', item.colorClass]}></span>
+                {item.label}
+              </li>
+            ))}
           </ul>
         </div>
       </div>
@@ -487,7 +477,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
           navigateToNode(node);
         });
 
-        return { node, group, circle, text };
+        return { node, group };
       });
 
       const state = {
