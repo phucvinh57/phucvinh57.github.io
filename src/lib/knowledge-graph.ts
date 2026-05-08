@@ -40,7 +40,15 @@ export interface KnowledgeGraphData {
 
 const WIKI_LINK_PATTERN = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
 const BLOG_LINK_PATTERN =
-  /\]\((?:https?:\/\/[^)\s]+)?\/blog\/([^)\s#?]+)\/?(?:[?#][^)\s]*)?\)/g;
+  /^(?:https?:\/\/[^)\s]+)?\/blog\/([^)\s#?]+)\/?(?:[?#][^)\s]*)?$/i;
+const MARKDOWN_LINK_PATTERN = /\[([^\]]+)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+
+interface ReferenceCandidate {
+  reference: string;
+  label?: string;
+  url?: string;
+  description?: string;
+}
 
 function safelyDecode(value: string) {
   try {
@@ -74,22 +82,59 @@ function getReferenceLabel(reference: string) {
     .trim();
 }
 
-function extractInternalReferences(body: string) {
-  const references = new Set<string>();
+function stripMarkdown(value: string) {
+  return value
+    .replace(/[`*_~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getBlogReferenceFromUrl(url: string) {
+  return BLOG_LINK_PATTERN.exec(url)?.[1];
+}
+
+function getReferenceKey(reference: ReferenceCandidate) {
+  return reference.url
+    ? `external:${reference.url}`
+    : `internal:${normalizeReference(reference.reference)}`;
+}
+
+function extractReferences(body: string) {
+  const references = new Map<string, ReferenceCandidate>();
+
+  function addReference(reference: ReferenceCandidate) {
+    references.set(getReferenceKey(reference), reference);
+  }
 
   for (const match of body.matchAll(WIKI_LINK_PATTERN)) {
     if (match[1]) {
-      references.add(match[1]);
+      addReference({ reference: match[1] });
     }
   }
 
-  for (const match of body.matchAll(BLOG_LINK_PATTERN)) {
-    if (match[1]) {
-      references.add(match[1]);
+  for (const match of body.matchAll(MARKDOWN_LINK_PATTERN)) {
+    const matchIndex = match.index ?? 0;
+
+    if (body[matchIndex - 1] === '!') {
+      continue;
+    }
+
+    const [, label, url] = match;
+    const blogReference = getBlogReferenceFromUrl(url);
+
+    if (blogReference) {
+      addReference({ reference: blogReference });
+    } else if (/^https?:\/\//i.test(url)) {
+      addReference({
+        reference: url,
+        label: stripMarkdown(label),
+        url,
+        description: 'External reference.',
+      });
     }
   }
 
-  return [...references];
+  return [...references.values()];
 }
 
 function createLinkId(
@@ -143,15 +188,19 @@ export function buildKnowledgeGraph(posts: BlogPost[]): KnowledgeGraphData {
     );
   }
 
-  function addReferenceNode(reference: string) {
-    const normalizedReference = normalizeReference(reference);
+  function addReferenceNode(reference: ReferenceCandidate | string) {
+    const candidate =
+      typeof reference === 'string' ? { reference } : reference;
+    const normalizedReference = normalizeReference(candidate.reference);
     const id = `reference:${normalizedReference}`;
 
     addNode({
       id,
-      label: getReferenceLabel(reference),
+      label: candidate.label || getReferenceLabel(candidate.reference),
       type: 'reference',
-      description: 'Referenced note that does not exist yet.',
+      url: candidate.url || `/blog/${normalizedReference}/`,
+      description:
+        candidate.description || 'Referenced note that does not exist yet.',
     });
 
     return id;
@@ -192,11 +241,11 @@ export function buildKnowledgeGraph(posts: BlogPost[]): KnowledgeGraphData {
       addLink(postId, relatedPostId, 'related', 2);
     }
 
-    for (const internalReference of extractInternalReferences(post.body ?? '')) {
-      const mentionedPost = resolvePost(internalReference);
+    for (const reference of extractReferences(post.body ?? '')) {
+      const mentionedPost = resolvePost(reference.reference);
       const mentionedPostId = mentionedPost
         ? `post:${getPostSlug(mentionedPost)}`
-        : addReferenceNode(internalReference);
+        : addReferenceNode(reference);
 
       addLink(postId, mentionedPostId, 'mention', 1.5);
     }

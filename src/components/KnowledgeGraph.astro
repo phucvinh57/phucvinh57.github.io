@@ -130,6 +130,19 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
       }).format(new Date(value));
     }
 
+    function navigateToNode(node) {
+      if (!node?.url) {
+        return;
+      }
+
+      if (node.type === 'reference') {
+        window.open(node.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      window.location.href = node.url;
+    }
+
     function mountKnowledgeGraph(root) {
       if (root.dataset.graphReady === 'true') {
         return;
@@ -253,7 +266,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
           }
 
           event.preventDefault();
-          window.location.href = node.url;
+          navigateToNode(node);
         });
 
         return { node, group, circle, text };
@@ -616,7 +629,7 @@ const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
         state.panStart = null;
 
         if (shouldNavigate) {
-          window.location.href = selectedNode.url;
+          navigateToNode(selectedNode);
         }
       });
 
