@@ -1,14 +1,29 @@
 {
-  "name": "",
+  "name": "phucvinh-astro",
   "type": "module",
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "dev:network": "astro dev --host",
+    "build": "astro check && astro build",
     "preview": "astro preview",
+    "preview:network": "astro preview --host",
+    "sync": "astro sync",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.13.1"
+    "@astrojs/mdx": "^5.0.4",
+    "@astrojs/rss": "^4.0.18",
+    "@astrojs/sitemap": "^3.7.2",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/lora": "^5.2.8",
+    "@tailwindcss/typography": "^0.5.19",
+    "@tailwindcss/vite": "^4.2.4",
+    "astro": "6.3.1",
+    "tailwindcss": "^4.2.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "typescript": "^6.0.3"
   }
 }

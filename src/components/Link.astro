@@ -1,0 +1,35 @@
+---
+interface Props {
+  href: string;
+  external?: boolean;
+  underline?: boolean;
+  class?: string;
+  [key: string]: unknown;
+}
+
+const {
+  href,
+  external = false,
+  underline = true,
+  class: className,
+  ...attrs
+} = Astro.props;
+
+const classes = [
+  'inline-block text-current transition-colors duration-300 ease-in-out hover:text-black dark:hover:text-white',
+  underline && 'underline underline-offset-2 decoration-black/15 hover:decoration-black/25 dark:decoration-white/30 hover:dark:decoration-white/50',
+  className,
+]
+  .filter(Boolean)
+  .join(' ');
+---
+
+<a
+  href={href}
+  target={external ? '_blank' : undefined}
+  rel={external ? 'noreferrer' : undefined}
+  class={classes}
+  {...attrs}
+>
+  <slot />
+</a>

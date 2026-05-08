@@ -1,0 +1,123 @@
+---
+import { SITE } from '@/consts';
+import Footer from '@/components/Footer.astro';
+import Head from '@/components/Head.astro';
+import Header from '@/components/Header.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = SITE.DESCRIPTION } = Astro.props;
+const pageTitle = title === SITE.NAME ? title : `${title} | ${SITE.NAME}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <Head title={pageTitle} description={description} />
+  </head>
+  <body class="flex min-h-screen flex-col bg-stone-100 font-sans text-black/50 antialiased dark:bg-stone-900 dark:text-white/75">
+    <Header />
+    <main class="flex-1 py-32">
+      <slot />
+    </main>
+    <Footer />
+    <script is:inline>
+      function readSystemTheme() {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      function shouldUseDarkTheme() {
+        const userTheme = localStorage.getItem('theme');
+
+        return userTheme === 'dark' || (!userTheme && readSystemTheme()) || (userTheme === 'system' && readSystemTheme());
+      }
+
+      function toggleTheme(dark, targetDocument = document) {
+        targetDocument.documentElement.classList.toggle('dark', dark);
+      }
+
+      function applyStoredTheme(targetDocument = document) {
+        toggleTheme(shouldUseDarkTheme(), targetDocument);
+      }
+
+      function bindOnce(element, eventName, handler) {
+        if (!element || element.dataset.bound === 'true') {
+          return;
+        }
+
+        element.addEventListener(eventName, handler);
+        element.dataset.bound = 'true';
+      }
+
+      function animateIn() {
+        document.querySelectorAll('.animate').forEach((element, index) => {
+          window.setTimeout(() => {
+            element.classList.add('show');
+          }, index * 120);
+        });
+      }
+
+      function onScroll() {
+        document.documentElement.classList.toggle('scrolled', window.scrollY > 0);
+      }
+
+      function initializeThemeControls() {
+        const lightThemeButton = document.getElementById('light-theme-button');
+        const darkThemeButton = document.getElementById('dark-theme-button');
+        const systemThemeButton = document.getElementById('system-theme-button');
+        const backToTop = document.getElementById('back-to-top');
+
+        bindOnce(lightThemeButton, 'click', () => {
+          localStorage.setItem('theme', 'light');
+          toggleTheme(false);
+        });
+
+        bindOnce(darkThemeButton, 'click', () => {
+          localStorage.setItem('theme', 'dark');
+          toggleTheme(true);
+        });
+
+        bindOnce(systemThemeButton, 'click', () => {
+          localStorage.setItem('theme', 'system');
+          toggleTheme(readSystemTheme());
+        });
+
+        bindOnce(backToTop, 'click', (event) => {
+          event.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+
+      function initializePage() {
+        applyStoredTheme();
+        onScroll();
+        animateIn();
+        initializeThemeControls();
+      }
+
+      if (!window.__siteThemeNavigationBound) {
+        window.__siteThemeNavigationBound = true;
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+          const userTheme = localStorage.getItem('theme');
+
+          if (!userTheme || userTheme === 'system') {
+            toggleTheme(event.matches);
+          }
+        });
+
+        document.addEventListener('scroll', onScroll);
+        document.addEventListener('DOMContentLoaded', initializePage);
+        document.addEventListener('astro:before-swap', (event) => {
+          applyStoredTheme(event.newDocument);
+        });
+        document.addEventListener('astro:after-swap', initializePage);
+      }
+
+      initializePage();
+    </script>
+  </body>
+</html>

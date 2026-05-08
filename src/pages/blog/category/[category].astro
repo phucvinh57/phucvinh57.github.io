@@ -1,0 +1,72 @@
+---
+import { getCollection } from 'astro:content';
+import ArrowCard from '@/components/ArrowCard.astro';
+import BackToPrev from '@/components/BackToPrev.astro';
+import Container from '@/components/Container.astro';
+import SiteLayout from '@/layouts/SiteLayout.astro';
+import {
+  getCategories,
+  getPublishedPosts,
+  groupPostsByYear,
+  slugifyCategory,
+  type BlogPost,
+} from '@/lib/blog';
+
+export async function getStaticPaths() {
+  const posts = getPublishedPosts(await getCollection('blog'));
+
+  return getCategories(posts).map(({ slug, name }) => ({
+    params: { category: slug },
+    props: {
+      categoryName: name,
+      posts: posts.filter((post) =>
+        post.data.categories.some((category) => slugifyCategory(category) === slug),
+      ),
+    },
+  }));
+}
+
+interface Props {
+  categoryName: string;
+  posts: BlogPost[];
+}
+
+const { categoryName, posts } = Astro.props;
+const postGroups = groupPostsByYear(posts);
+---
+
+<SiteLayout
+  title={categoryName}
+  description={`Posts in ${categoryName} by Nguyen Phuc Vinh.`}
+>
+  <Container>
+    <div class="animate">
+      <BackToPrev href="/blog/">Back to blog</BackToPrev>
+    </div>
+
+    <div class="my-10 space-y-2">
+      <div class="animate text-sm">Category</div>
+      <h1 class="animate text-2xl font-semibold text-black dark:text-white">
+        {categoryName}
+      </h1>
+      <p class="animate">
+        {posts.length} {posts.length === 1 ? 'post' : 'posts'} connected to this category.
+      </p>
+    </div>
+
+    <div class="space-y-8">
+      {postGroups.map(({ year, posts: yearPosts }) => (
+        <section class="animate space-y-4">
+          <h2 class="font-semibold text-black dark:text-white">{year}</h2>
+          <ul class="flex flex-col gap-4">
+            {yearPosts.map((post) => (
+              <li>
+                <ArrowCard post={post} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  </Container>
+</SiteLayout>

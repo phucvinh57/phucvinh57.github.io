@@ -1,17 +1,33 @@
-<body>
-    <a href="/">Home</a>
-    <a href="/about/">About</a>
-    
-    <h1>About Me</h1>
-  <h2>... and my new Astro site!</h2>
+---
+import Container from '@/components/Container.astro';
+import Link from '@/components/Link.astro';
+import { ABOUT, SITE } from '@/consts';
+import SiteLayout from '@/layouts/SiteLayout.astro';
+---
 
-  <p>
-    I am working through Astro's introductory tutorial. This is the second page
-    on my website, and it's the first one I built myself!
-  </p>
+<SiteLayout title={ABOUT.TITLE} description={ABOUT.DESCRIPTION}>
+  <Container>
+    <div class="space-y-10">
+      <h1 class="animate font-semibold text-black dark:text-white">
+        About
+      </h1>
 
-  <p>
-    This site will update as I complete more of the tutorial, so keep checking
-    back and see how my journey is going!
-  </p>
-</body>
+      <section class="space-y-4 leading-7">
+        <p class="animate">
+          I am Nguyen Phuc Vinh. I use this site as a compact notebook for
+          software development, systems, and the ideas I am learning in public.
+        </p>
+        <p class="animate">
+          The goal is simple: write clearly enough that future me can come back
+          and still understand the thought.
+        </p>
+        <p class="animate">
+          You can also find me on
+          <Link href={SITE.GITHUB} external aria-label={`${SITE.NAME} on GitHub`}>
+            GitHub
+          </Link>.
+        </p>
+      </section>
+    </div>
+  </Container>
+</SiteLayout>

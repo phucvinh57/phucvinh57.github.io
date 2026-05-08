@@ -1,0 +1,68 @@
+---
+import { getCollection, render } from 'astro:content';
+import BackToPrev from '@/components/BackToPrev.astro';
+import Container from '@/components/Container.astro';
+import FormattedDate from '@/components/FormattedDate.astro';
+import Link from '@/components/Link.astro';
+import SiteLayout from '@/layouts/SiteLayout.astro';
+import {
+  getCategoryUrl,
+  getPostSlug,
+  getPublishedPosts,
+  readingTime,
+  sortPosts,
+  type BlogPost,
+} from '@/lib/blog';
+
+export async function getStaticPaths() {
+  const posts = sortPosts(getPublishedPosts(await getCollection('blog')));
+
+  return posts.map((post) => ({
+    params: { slug: getPostSlug(post) },
+    props: { post },
+  }));
+}
+
+interface Props {
+  post: BlogPost;
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<SiteLayout title={post.data.title} description={post.data.description}>
+  <Container>
+    <div class="animate">
+      <BackToPrev href="/blog/">Back to blog</BackToPrev>
+    </div>
+
+    <div class="my-10 space-y-4">
+      <div class="animate flex flex-wrap items-center gap-1.5 text-sm">
+        <FormattedDate date={post.data.pubDate} />
+        <span aria-hidden="true">&bull;</span>
+        <span>{readingTime(post.body ?? '')}</span>
+      </div>
+      <h1 class="animate text-2xl font-semibold text-black dark:text-white">
+        {post.data.title}
+      </h1>
+      <ul class="animate flex flex-wrap gap-2" aria-label="Categories">
+        {post.data.categories.map((category) => (
+          <li>
+            <Link
+              href={getCategoryUrl(category)}
+              underline={false}
+              class="rounded border border-black/15 px-2 py-1 text-sm dark:border-white/20"
+            >
+              {category}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <article class="animate prose max-w-full dark:prose-invert prose-headings:font-semibold prose-headings:text-black prose-headings:dark:text-white prose-p:font-serif prose-a:font-sans prose-a:text-current prose-a:underline-offset-2 prose-a:decoration-black/15 dark:prose-a:decoration-white/30">
+      <Content />
+    </article>
+  </Container>
+</SiteLayout>
