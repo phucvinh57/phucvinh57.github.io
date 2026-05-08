@@ -11,27 +11,132 @@ import { buildKnowledgeGraph } from '@/lib/knowledge-graph';
 const posts = getPublishedPosts(await getCollection('blog'));
 const postGroups = groupPostsByYear(posts);
 const graph = buildKnowledgeGraph(posts);
+const postSearchDateFormatter = Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: '2-digit',
+  year: 'numeric',
+});
 ---
 
 <SiteLayout title={BLOG.TITLE} description={BLOG.DESCRIPTION}>
-  <Container class="space-y-16">
-    <KnowledgeGraph graph={graph} />
+  <Container>
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
+      <section class="space-y-8">
+        <div class="animate space-y-4">
+          <div class="space-y-2">
+            <h1 class="text-2xl font-semibold text-black dark:text-white">
+              Blog
+            </h1>
+            <p class="max-w-2xl leading-7">
+              Notes about software development, systems, and ideas learned along the way.
+            </p>
+          </div>
 
-    <div class="space-y-10">
-      <div class="space-y-8">
-        {postGroups.map(({ year, posts: yearPosts }) => (
-          <section class="animate space-y-4">
-            <h2 class="font-semibold text-black dark:text-white">{year}</h2>
-            <ul class="flex flex-col gap-4">
-              {yearPosts.map((post) => (
-                <li>
-                  <ArrowCard post={post} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+          <label class="flex max-w-xl flex-col gap-2 text-sm">
+            <span>Search posts</span>
+            <input
+              data-blog-search
+              type="search"
+              autocomplete="off"
+              placeholder="Find a post, category, or year"
+              class="h-10 rounded-md border border-black/15 bg-white/70 px-3 text-black outline-none transition-colors duration-300 placeholder:text-black/35 focus:border-black/35 dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35 dark:focus:border-white/40"
+            />
+          </label>
+        </div>
+
+        <div data-blog-post-list class="space-y-10">
+          <div class="space-y-8">
+            {postGroups.map(({ year, posts: yearPosts }) => (
+              <section data-post-year-section class="animate space-y-4">
+                <h2 class="font-semibold text-black dark:text-white">{year}</h2>
+                <ul class="flex flex-col gap-4">
+                  {yearPosts.map((post) => (
+                    <li
+                      data-post-search-item
+                      data-post-search-text={[
+                        post.data.title,
+                        post.data.description,
+                        post.data.pubDate.toISOString(),
+                        postSearchDateFormatter.format(post.data.pubDate),
+                        post.data.pubDate.getFullYear().toString(),
+                        ...post.data.categories,
+                      ]
+                        .join(' ')
+                        .toLowerCase()}
+                    >
+                      <ArrowCard post={post} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+
+          <p data-post-empty hidden class="animate text-sm">
+            No matching posts.
+          </p>
+        </div>
+      </section>
+
+      <aside class="lg:sticky lg:top-28">
+        <KnowledgeGraph graph={graph} />
+      </aside>
     </div>
   </Container>
+
+  <script>
+    // @ts-nocheck
+    (() => {
+      if (document.documentElement.dataset.blogPostSearchScript === 'loaded') {
+        return;
+      }
+
+      document.documentElement.dataset.blogPostSearchScript = 'loaded';
+
+      function mountBlogPostSearch() {
+        const root = document.querySelector('[data-blog-post-list]');
+        const searchInput = document.querySelector('[data-blog-search]');
+
+        if (!root || !searchInput || root.dataset.searchReady === 'true') {
+          return;
+        }
+
+        root.dataset.searchReady = 'true';
+
+        const items = [...root.querySelectorAll('[data-post-search-item]')];
+        const sections = [...root.querySelectorAll('[data-post-year-section]')];
+        const emptyState = root.querySelector('[data-post-empty]');
+
+        function updatePosts() {
+          const query = searchInput.value.trim().toLowerCase();
+          let visibleCount = 0;
+
+          for (const item of items) {
+            const matches = !query || item.dataset.postSearchText.includes(query);
+
+            item.hidden = !matches;
+
+            if (matches) {
+              visibleCount += 1;
+            }
+          }
+
+          for (const section of sections) {
+            section.hidden = !section.querySelector('[data-post-search-item]:not([hidden])');
+          }
+
+          if (emptyState) {
+            emptyState.hidden = !query || visibleCount > 0;
+          }
+        }
+
+        searchInput.addEventListener('input', updatePosts);
+        updatePosts();
+      }
+
+      document.addEventListener('DOMContentLoaded', mountBlogPostSearch);
+      document.addEventListener('astro:after-swap', mountBlogPostSearch);
+      mountBlogPostSearch();
+    })();
+  </script>
 </SiteLayout>

@@ -1,4 +1,5 @@
 ---
+import FormattedDate from '@/components/FormattedDate.astro';
 import type { BlogPost } from '@/lib/blog';
 import { getPostUrl } from '@/lib/blog';
 
@@ -14,12 +15,21 @@ const { post, href = getPostUrl(post) } = Astro.props;
   href={href}
   class="group relative flex flex-nowrap rounded-lg border border-black/15 px-4 py-3 pr-10 text-current transition-colors duration-300 ease-in-out hover:bg-black/5 hover:text-black dark:border-white/20 dark:hover:bg-white/5 dark:hover:text-white"
 >
-  <div class="flex min-w-0 flex-1 flex-col">
+  <div class="flex min-w-0 flex-1 flex-col gap-2">
     <div class="truncate font-semibold text-black dark:text-white">
       {post.data.title}
     </div>
     <div class="line-clamp-2 text-sm">
       {post.data.description}
+    </div>
+    <div class="flex flex-wrap items-center gap-1.5 text-xs">
+      <FormattedDate date={post.data.pubDate} />
+      <span aria-hidden="true">&bull;</span>
+      {post.data.categories.map((category) => (
+        <span class="rounded border border-black/10 px-1.5 py-0.5 dark:border-white/15">
+          {category}
+        </span>
+      ))}
     </div>
   </div>
   <svg

@@ -3,6 +3,7 @@ import {
   getCategoryUrl,
   getPostSlug,
   getPostUrl,
+  resolvePostReference,
   slugifyCategory,
 } from '@/lib/blog';
 
@@ -68,10 +69,6 @@ function normalizeReference(value: string) {
     .replace(/\/index$/i, '')
     .toLowerCase()
     .replace(/\s+/g, '-');
-}
-
-function normalizeTitle(value: string) {
-  return slugifyCategory(value);
 }
 
 function getReferenceLabel(reference: string) {
@@ -150,13 +147,6 @@ function createLinkId(
 export function buildKnowledgeGraph(posts: BlogPost[]): KnowledgeGraphData {
   const nodes = new Map<string, KnowledgeGraphNode>();
   const links = new Map<string, KnowledgeGraphLink>();
-  const postsByReference = new Map<string, BlogPost>();
-
-  for (const post of posts) {
-    postsByReference.set(normalizeReference(getPostSlug(post)), post);
-    postsByReference.set(normalizeReference(post.id), post);
-    postsByReference.set(normalizeTitle(post.data.title), post);
-  }
 
   function addNode(node: Omit<KnowledgeGraphNode, 'degree'>) {
     if (!nodes.has(node.id)) {
@@ -182,10 +172,7 @@ export function buildKnowledgeGraph(posts: BlogPost[]): KnowledgeGraphData {
   }
 
   function resolvePost(reference: string) {
-    return (
-      postsByReference.get(normalizeReference(reference)) ??
-      postsByReference.get(normalizeTitle(reference))
-    );
+    return resolvePostReference(posts, reference);
   }
 
   function addReferenceNode(reference: ReferenceCandidate | string) {

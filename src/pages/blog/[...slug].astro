@@ -1,5 +1,6 @@
 ---
 import { getCollection, render } from 'astro:content';
+import ArrowCard from '@/components/ArrowCard.astro';
 import BackToPrev from '@/components/BackToPrev.astro';
 import Container from '@/components/Container.astro';
 import FormattedDate from '@/components/FormattedDate.astro';
@@ -9,6 +10,7 @@ import {
   getCategoryUrl,
   getPostSlug,
   getPublishedPosts,
+  getRelatedPosts,
   readingTime,
   sortPosts,
   type BlogPost,
@@ -28,7 +30,9 @@ interface Props {
 }
 
 const { post } = Astro.props;
+const posts = sortPosts(getPublishedPosts(await getCollection('blog')));
 const { Content } = await render(post);
+const relatedPosts = getRelatedPosts(post, posts);
 ---
 
 <SiteLayout title={post.data.title} description={post.data.description}>
@@ -64,5 +68,18 @@ const { Content } = await render(post);
     <article class="animate prose max-w-full dark:prose-invert prose-headings:font-semibold prose-headings:text-black prose-headings:dark:text-white prose-p:font-serif prose-a:font-sans prose-a:text-current prose-a:underline-offset-2 prose-a:decoration-black/15 dark:prose-a:decoration-white/30">
       <Content />
     </article>
+
+    {relatedPosts.length > 0 && (
+      <section class="animate mt-12 border-t border-black/15 pt-8 dark:border-white/20">
+        <h2 class="mb-4 text-lg font-semibold text-black dark:text-white">
+          Related posts
+        </h2>
+        <div class="grid gap-3 sm:grid-cols-2">
+          {relatedPosts.map((relatedPost) => (
+            <ArrowCard post={relatedPost} />
+          ))}
+        </div>
+      </section>
+    )}
   </Container>
 </SiteLayout>

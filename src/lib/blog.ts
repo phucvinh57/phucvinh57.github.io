@@ -39,6 +39,47 @@ export function slugifyCategory(category: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+function safelyDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export function normalizePostReference(value: string) {
+  return safelyDecode(value)
+    .trim()
+    .replace(/^\/+/, '')
+    .replace(/^blog\//, '')
+    .replace(/\/+$/, '')
+    .replace(/\.mdx?$/i, '')
+    .replace(/\/index$/i, '')
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+}
+
+function getPostsByReference(posts: BlogPost[]) {
+  const postsByReference = new Map<string, BlogPost>();
+
+  for (const post of posts) {
+    postsByReference.set(normalizePostReference(getPostSlug(post)), post);
+    postsByReference.set(normalizePostReference(post.id), post);
+    postsByReference.set(slugifyCategory(post.data.title), post);
+  }
+
+  return postsByReference;
+}
+
+export function resolvePostReference(posts: BlogPost[], reference: string) {
+  const postsByReference = getPostsByReference(posts);
+
+  return (
+    postsByReference.get(normalizePostReference(reference)) ??
+    postsByReference.get(slugifyCategory(reference))
+  );
+}
+
 export function getPostSlug(post: BlogPost) {
   return post.id.replace(/\/index$/, '');
 }
@@ -63,6 +104,45 @@ export function getCategories(posts: BlogPost[]) {
   return [...categories.entries()]
     .map(([slug, name]) => ({ slug, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getRelatedPosts(post: BlogPost, posts: BlogPost[]) {
+  const relatedPosts = new Map<string, BlogPost>();
+  const currentPostSlug = getPostSlug(post);
+
+  function addRelatedPost(relatedPost: BlogPost | undefined) {
+    if (!relatedPost || getPostSlug(relatedPost) === currentPostSlug) {
+      return;
+    }
+
+    relatedPosts.set(getPostSlug(relatedPost), relatedPost);
+  }
+
+  for (const reference of post.data.relatedPosts) {
+    addRelatedPost(resolvePostReference(posts, reference));
+  }
+
+  for (const candidatePost of sortPosts(posts)) {
+    if (getPostSlug(candidatePost) === currentPostSlug) {
+      continue;
+    }
+
+    const linksToCurrentPost = candidatePost.data.relatedPosts.some(
+      (reference) => {
+        const relatedPost = resolvePostReference(posts, reference);
+
+        return relatedPost
+          ? getPostSlug(relatedPost) === currentPostSlug
+          : false;
+      },
+    );
+
+    if (linksToCurrentPost) {
+      addRelatedPost(candidatePost);
+    }
+  }
+
+  return [...relatedPosts.values()];
 }
 
 export function readingTime(body: string) {
