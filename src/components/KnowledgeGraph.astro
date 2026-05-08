@@ -1,0 +1,754 @@
+---
+import type { KnowledgeGraphData } from '@/lib/knowledge-graph';
+
+interface Props {
+  graph: KnowledgeGraphData;
+}
+
+const { graph } = Astro.props;
+const graphJson = JSON.stringify(graph).replace(/</g, '\\u003c');
+const noteLabel = graph.stats.postCount === 1 ? 'post' : 'posts';
+const linkLabel = graph.stats.linkCount === 1 ? 'link' : 'links';
+---
+
+<section data-knowledge-graph class="animate space-y-5">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="space-y-2">
+      <h2 class="text-xl font-semibold text-black dark:text-white">
+        Knowledge graph
+      </h2>
+      <p class="max-w-xl leading-7">
+        {graph.stats.postCount} {noteLabel}, {graph.stats.categoryCount} categories,
+        and {graph.stats.linkCount} {linkLabel} in the blog.
+      </p>
+    </div>
+
+    <label class="flex w-full flex-col gap-2 text-sm sm:w-64">
+      <span>Search</span>
+      <input
+        data-graph-search
+        type="search"
+        autocomplete="off"
+        placeholder="Find a post or category"
+        class="h-10 rounded-md border border-black/15 bg-white/70 px-3 text-black outline-none transition-colors duration-300 placeholder:text-black/35 focus:border-black/35 dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35 dark:focus:border-white/40"
+      />
+    </label>
+  </div>
+
+  <div class="knowledge-graph-surface relative h-136 min-h-96 overflow-hidden rounded-lg border border-black/15 bg-white/60 pb-24 dark:border-white/20 dark:bg-white/3 sm:pb-16">
+    <svg
+      data-graph-canvas
+      class="h-full w-full"
+      role="img"
+      aria-label="Interactive knowledge graph"
+    ></svg>
+    <div
+      data-graph-empty
+      hidden
+      class="absolute inset-0 grid place-items-center px-6 text-center text-sm"
+    >
+      No matching notes.
+    </div>
+    <div
+      data-graph-tooltip
+      hidden
+      class="pointer-events-none absolute z-10 max-w-72 rounded-md border border-black/15 bg-stone-100/95 p-3 text-sm shadow-lg backdrop-blur dark:border-white/20 dark:bg-stone-900/95"
+    ></div>
+
+    <div class="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <ul class="pointer-events-auto flex flex-wrap gap-x-4 gap-y-2" aria-label="Graph legend">
+        <li class="flex items-center gap-2">
+          <span class="size-2.5 rounded-full bg-blue-600"></span>
+          Notes
+        </li>
+        <li class="flex items-center gap-2">
+          <span class="size-2.5 rounded-full bg-emerald-600"></span>
+          Categories
+        </li>
+        {
+          graph.stats.referenceCount > 0 && (
+            <li class="flex items-center gap-2">
+              <span class="size-2.5 rounded-full bg-amber-500" />
+              References
+            </li>
+          )
+        }
+      </ul>
+
+      <button
+        data-graph-reset
+        type="button"
+        class="pointer-events-auto w-fit rounded-md border border-black/15 px-3 py-2 text-current transition-colors duration-300 hover:bg-black/5 hover:text-black dark:border-white/20 dark:hover:bg-white/5 dark:hover:text-white"
+      >
+        Reset view
+      </button>
+    </div>
+  </div>
+
+  <script is:inline type="application/json" data-graph-data set:html={graphJson}></script>
+</section>
+
+<script>
+  // @ts-nocheck
+  (() => {
+    if (document.documentElement.dataset.knowledgeGraphScript === 'loaded') {
+      return;
+    }
+
+    document.documentElement.dataset.knowledgeGraphScript = 'loaded';
+
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const typeColors = {
+      post: '#2563eb',
+      category: '#059669',
+      reference: '#d97706',
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function createSvgElement(tagName, attributes = {}) {
+      const element = document.createElementNS(svgNamespace, tagName);
+
+      for (const [name, value] of Object.entries(attributes)) {
+        element.setAttribute(name, String(value));
+      }
+
+      return element;
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return '';
+      }
+
+      return new Intl.DateTimeFormat('en', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(value));
+    }
+
+    function mountKnowledgeGraph(root) {
+      if (root.dataset.graphReady === 'true') {
+        return;
+      }
+
+      root.dataset.graphReady = 'true';
+
+      const dataElement = root.querySelector('[data-graph-data]');
+      const svg = root.querySelector('[data-graph-canvas]');
+      const searchInput = root.querySelector('[data-graph-search]');
+      const resetButton = root.querySelector('[data-graph-reset]');
+      const emptyState = root.querySelector('[data-graph-empty]');
+      const tooltip = root.querySelector('[data-graph-tooltip]');
+
+      if (!dataElement || !svg || !searchInput || !resetButton || !emptyState || !tooltip) {
+        return;
+      }
+
+      const graph = JSON.parse(dataElement.textContent || '{"nodes":[],"links":[]}');
+      const nodes = graph.nodes.map((node, index) => ({
+        ...node,
+        index,
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        visible: true,
+        matchesSearch: true,
+      }));
+      const nodeById = new Map(nodes.map((node) => [node.id, node]));
+      const links = graph.links
+        .map((link) => ({
+          ...link,
+          sourceNode: nodeById.get(link.source),
+          targetNode: nodeById.get(link.target),
+          visible: true,
+        }))
+        .filter((link) => link.sourceNode && link.targetNode);
+      const adjacency = new Map(nodes.map((node) => [node.id, new Set()]));
+
+      for (const link of links) {
+        adjacency.get(link.source).add(link.target);
+        adjacency.get(link.target).add(link.source);
+      }
+
+      const viewport = createSvgElement('g', { class: 'knowledge-graph-viewport' });
+      const linkLayer = createSvgElement('g', { class: 'knowledge-graph-links' });
+      const nodeLayer = createSvgElement('g', { class: 'knowledge-graph-nodes' });
+
+      viewport.append(linkLayer, nodeLayer);
+      svg.replaceChildren(viewport);
+
+      const linkElements = links.map((link) => {
+        const line = createSvgElement('line', {
+          class: `knowledge-graph-link ${link.type}`,
+        });
+        linkLayer.append(line);
+
+        return { link, line };
+      });
+
+      const nodeElements = nodes.map((node) => {
+        const group = createSvgElement('g', {
+          class: `knowledge-graph-node ${node.type}`,
+          tabindex: node.url ? '0' : '-1',
+          role: node.url ? 'link' : 'img',
+          'aria-label': node.label,
+        });
+        const radius = 7 + Math.min(7, Math.max(0, node.degree) * 1.4);
+        const circle = createSvgElement('circle', {
+          r: radius,
+          fill: typeColors[node.type] || typeColors.post,
+        });
+        const text = createSvgElement('text', {
+          x: radius + 8,
+          y: 4,
+        });
+
+        text.textContent = node.label;
+        group.append(circle, text);
+        nodeLayer.append(group);
+
+        group.addEventListener('pointerenter', (event) => {
+          state.hoverNode = node;
+          showTooltip(node, event);
+          updateDom();
+        });
+        group.addEventListener('pointermove', (event) => {
+          if (state.hoverNode === node) {
+            positionTooltip(event);
+          }
+        });
+        group.addEventListener('pointerleave', () => {
+          if (!state.draggingNode) {
+            state.hoverNode = null;
+            tooltip.hidden = true;
+            updateDom();
+          }
+        });
+        group.addEventListener('pointerdown', (event) => {
+          if (event.button !== 0) {
+            return;
+          }
+
+          const point = screenToWorld(getPointerPoint(event));
+
+          state.draggingNode = node;
+          state.dragStart = getPointerPoint(event);
+          state.dragMoved = false;
+          node.x = point.x;
+          node.y = point.y;
+          node.vx = 0;
+          node.vy = 0;
+          svg.setPointerCapture(event.pointerId);
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        group.addEventListener('keydown', (event) => {
+          if (!node.url || (event.key !== 'Enter' && event.key !== ' ')) {
+            return;
+          }
+
+          event.preventDefault();
+          window.location.href = node.url;
+        });
+
+        return { node, group, circle, text };
+      });
+
+      const state = {
+        width: 1,
+        height: 1,
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        alpha: 1,
+        hoverNode: null,
+        draggingNode: null,
+        dragStart: null,
+        dragMoved: false,
+        panStart: null,
+        animationFrame: 0,
+        initialized: false,
+      };
+
+      function getPointerPoint(event) {
+        const rect = svg.getBoundingClientRect();
+
+        return {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        };
+      }
+
+      function screenToWorld(point) {
+        return {
+          x: (point.x - state.offsetX) / state.scale,
+          y: (point.y - state.offsetY) / state.scale,
+        };
+      }
+
+      function applyViewportTransform() {
+        viewport.setAttribute(
+          'transform',
+          `translate(${state.offsetX} ${state.offsetY}) scale(${state.scale})`,
+        );
+      }
+
+      function resetPositions() {
+        const radius = Math.max(70, Math.min(state.width, state.height) * 0.28);
+        const centerX = state.width / 2;
+        const centerY = state.height / 2;
+
+        for (const [index, node] of nodes.entries()) {
+          const angle = (index / Math.max(1, nodes.length)) * Math.PI * 2;
+          const typeOffset = node.type === 'post' ? 0 : node.type === 'category' ? 0.42 : -0.42;
+
+          node.x = centerX + Math.cos(angle + typeOffset) * radius;
+          node.y = centerY + Math.sin(angle + typeOffset) * radius;
+          node.vx = 0;
+          node.vy = 0;
+        }
+
+        state.scale = 1;
+        state.offsetX = 0;
+        state.offsetY = 0;
+        state.alpha = 1;
+        applyViewportTransform();
+        updateDom();
+      }
+
+      function resize() {
+        const rect = svg.getBoundingClientRect();
+
+        state.width = Math.max(320, rect.width);
+        state.height = Math.max(320, rect.height);
+        svg.setAttribute('viewBox', `0 0 ${state.width} ${state.height}`);
+
+        if (!state.initialized) {
+          state.initialized = true;
+          resetPositions();
+        }
+      }
+
+      function isAdjacent(left, right) {
+        return adjacency.get(left.id)?.has(right.id);
+      }
+
+      function matchesNode(node, query) {
+        const searchableText = [
+          node.label,
+          node.description,
+          node.type,
+          formatDate(node.date),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        return searchableText.includes(query);
+      }
+
+      function updateSearch() {
+        const query = searchInput.value.trim().toLowerCase();
+        const matchingIds = new Set();
+
+        for (const node of nodes) {
+          node.matchesSearch = !query || matchesNode(node, query);
+
+          if (node.matchesSearch) {
+            matchingIds.add(node.id);
+          }
+        }
+
+        for (const node of nodes) {
+          node.visible =
+            !query ||
+            node.matchesSearch ||
+            [...(adjacency.get(node.id) || [])].some((id) => matchingIds.has(id));
+        }
+
+        for (const link of links) {
+          link.visible =
+            link.sourceNode.visible &&
+            link.targetNode.visible &&
+            (!query ||
+              link.sourceNode.matchesSearch ||
+              link.targetNode.matchesSearch);
+        }
+
+        emptyState.hidden = !query || matchingIds.size > 0;
+        state.alpha = 0.8;
+        updateDom();
+      }
+
+      function updateDom() {
+        const hovered = state.hoverNode;
+
+        for (const { link, line } of linkElements) {
+          const source = link.sourceNode;
+          const target = link.targetNode;
+          const connectedToHover =
+            hovered && (source.id === hovered.id || target.id === hovered.id);
+
+          line.setAttribute('x1', source.x);
+          line.setAttribute('y1', source.y);
+          line.setAttribute('x2', target.x);
+          line.setAttribute('y2', target.y);
+          line.style.display = link.visible ? '' : 'none';
+          line.style.opacity = hovered && !connectedToHover ? '0.12' : '';
+        }
+
+        for (const { node, group } of nodeElements) {
+          const relatedToHover =
+            hovered && (node.id === hovered.id || isAdjacent(node, hovered));
+
+          group.setAttribute('transform', `translate(${node.x} ${node.y})`);
+          group.style.display = node.visible ? '' : 'none';
+          group.style.opacity = hovered && !relatedToHover ? '0.24' : '';
+          group.classList.toggle('is-match', node.matchesSearch);
+          group.classList.toggle('is-hovered', hovered?.id === node.id);
+        }
+      }
+
+      function showTooltip(node, event) {
+        tooltip.replaceChildren();
+
+        const title = document.createElement('div');
+        const meta = document.createElement('div');
+
+        title.className = 'font-semibold text-black dark:text-white';
+        title.textContent = node.label;
+        meta.className = 'mt-1 text-xs';
+        meta.textContent = [node.type, formatDate(node.date)]
+          .filter(Boolean)
+          .join(' · ');
+
+        tooltip.append(title, meta);
+
+        if (node.description) {
+          const description = document.createElement('p');
+
+          description.className = 'mt-2 leading-5';
+          description.textContent = node.description;
+          tooltip.append(description);
+        }
+
+        tooltip.hidden = false;
+        positionTooltip(event);
+      }
+
+      function positionTooltip(event) {
+        const surfaceRect = root
+          .querySelector('.knowledge-graph-surface')
+          .getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const x = clamp(
+          event.clientX - surfaceRect.left + 14,
+          12,
+          surfaceRect.width - tooltipRect.width - 12,
+        );
+        const y = clamp(
+          event.clientY - surfaceRect.top + 14,
+          12,
+          surfaceRect.height - tooltipRect.height - 12,
+        );
+
+        tooltip.style.transform = `translate(${x}px, ${y}px)`;
+      }
+
+      function linkDistance(link) {
+        if (link.type === 'category') {
+          return 96;
+        }
+
+        return link.type === 'related' ? 132 : 118;
+      }
+
+      function tick() {
+        const visibleNodes = nodes.filter((node) => node.visible);
+        const visibleLinks = links.filter((link) => link.visible);
+        const centerX = state.width / 2;
+        const centerY = state.height / 2;
+
+        for (const link of visibleLinks) {
+          const source = link.sourceNode;
+          const target = link.targetNode;
+          const dx = target.x - source.x || 0.01;
+          const dy = target.y - source.y || 0.01;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const force = ((distance - linkDistance(link)) / distance) * 0.018 * link.weight;
+          const fx = dx * force;
+          const fy = dy * force;
+
+          if (source !== state.draggingNode) {
+            source.vx += fx;
+            source.vy += fy;
+          }
+
+          if (target !== state.draggingNode) {
+            target.vx -= fx;
+            target.vy -= fy;
+          }
+        }
+
+        for (let i = 0; i < visibleNodes.length; i += 1) {
+          const node = visibleNodes[i];
+
+          if (node !== state.draggingNode) {
+            node.vx += (centerX - node.x) * 0.003;
+            node.vy += (centerY - node.y) * 0.003;
+          }
+
+          for (let j = i + 1; j < visibleNodes.length; j += 1) {
+            const other = visibleNodes[j];
+            const dx = other.x - node.x || 0.01;
+            const dy = other.y - node.y || 0.01;
+            const distanceSquared = Math.max(120, dx * dx + dy * dy);
+            const distance = Math.sqrt(distanceSquared);
+            const force = 620 / distanceSquared;
+            const fx = (dx / distance) * force;
+            const fy = (dy / distance) * force;
+            const minimumDistance =
+              34 + Math.min(18, node.degree * 3) + Math.min(18, other.degree * 3);
+
+            if (node !== state.draggingNode) {
+              node.vx -= fx;
+              node.vy -= fy;
+            }
+
+            if (other !== state.draggingNode) {
+              other.vx += fx;
+              other.vy += fy;
+            }
+
+            if (distance < minimumDistance) {
+              const correction = ((minimumDistance - distance) / distance) * 0.025;
+
+              if (node !== state.draggingNode) {
+                node.vx -= dx * correction;
+                node.vy -= dy * correction;
+              }
+
+              if (other !== state.draggingNode) {
+                other.vx += dx * correction;
+                other.vy += dy * correction;
+              }
+            }
+          }
+        }
+
+        for (const node of visibleNodes) {
+          if (node === state.draggingNode) {
+            continue;
+          }
+
+          node.vx *= 0.82;
+          node.vy *= 0.82;
+          node.x = clamp(node.x + node.vx * state.alpha, 24, state.width - 24);
+          node.y = clamp(node.y + node.vy * state.alpha, 24, state.height - 24);
+        }
+
+        state.alpha = Math.max(0.025, state.alpha * 0.985);
+        updateDom();
+      }
+
+      function animate() {
+        if (state.alpha > 0.03 || state.draggingNode) {
+          tick();
+        }
+
+        state.animationFrame = window.requestAnimationFrame(animate);
+      }
+
+      svg.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) {
+          return;
+        }
+
+        state.panStart = {
+          point: getPointerPoint(event),
+          offsetX: state.offsetX,
+          offsetY: state.offsetY,
+        };
+        svg.setPointerCapture(event.pointerId);
+      });
+
+      svg.addEventListener('pointermove', (event) => {
+        if (state.draggingNode) {
+          const point = getPointerPoint(event);
+          const worldPoint = screenToWorld(point);
+          const moved =
+            state.dragStart &&
+            Math.hypot(point.x - state.dragStart.x, point.y - state.dragStart.y) > 3;
+
+          state.dragMoved = state.dragMoved || moved;
+          state.draggingNode.x = clamp(worldPoint.x, 24, state.width - 24);
+          state.draggingNode.y = clamp(worldPoint.y, 24, state.height - 24);
+          state.draggingNode.vx = 0;
+          state.draggingNode.vy = 0;
+          state.alpha = 0.7;
+          positionTooltip(event);
+          updateDom();
+          return;
+        }
+
+        if (state.panStart) {
+          const point = getPointerPoint(event);
+
+          state.offsetX =
+            state.panStart.offsetX + point.x - state.panStart.point.x;
+          state.offsetY =
+            state.panStart.offsetY + point.y - state.panStart.point.y;
+          applyViewportTransform();
+        }
+      });
+
+      svg.addEventListener('pointerup', () => {
+        const selectedNode = state.draggingNode;
+        const shouldNavigate = selectedNode?.url && !state.dragMoved;
+
+        state.draggingNode = null;
+        state.dragStart = null;
+        state.panStart = null;
+
+        if (shouldNavigate) {
+          window.location.href = selectedNode.url;
+        }
+      });
+
+      svg.addEventListener('pointercancel', () => {
+        state.draggingNode = null;
+        state.dragStart = null;
+        state.panStart = null;
+      });
+
+      svg.addEventListener(
+        'wheel',
+        (event) => {
+          event.preventDefault();
+
+          const point = getPointerPoint(event);
+          const beforeZoom = screenToWorld(point);
+          const nextScale = clamp(
+            state.scale * (event.deltaY > 0 ? 0.9 : 1.1),
+            0.55,
+            2.4,
+          );
+
+          state.scale = nextScale;
+          state.offsetX = point.x - beforeZoom.x * state.scale;
+          state.offsetY = point.y - beforeZoom.y * state.scale;
+          applyViewportTransform();
+        },
+        { passive: false },
+      );
+
+      searchInput.addEventListener('input', updateSearch);
+      resetButton.addEventListener('click', resetPositions);
+
+      const resizeObserver = new ResizeObserver(resize);
+
+      resizeObserver.observe(svg);
+      resize();
+      updateSearch();
+      animate();
+
+      document.addEventListener('astro:before-swap', () => {
+        window.cancelAnimationFrame(state.animationFrame);
+        resizeObserver.disconnect();
+      }, { once: true });
+    }
+
+    function mountKnowledgeGraphs() {
+      document
+        .querySelectorAll('[data-knowledge-graph]')
+        .forEach((root) => mountKnowledgeGraph(root));
+    }
+
+    document.addEventListener('DOMContentLoaded', mountKnowledgeGraphs);
+    document.addEventListener('astro:after-swap', mountKnowledgeGraphs);
+    mountKnowledgeGraphs();
+  })();
+</script>
+
+<style>
+  :global([data-knowledge-graph] svg) {
+    cursor: grab;
+    touch-action: none;
+  }
+
+  :global([data-knowledge-graph] svg:active) {
+    cursor: grabbing;
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-link) {
+    stroke: rgba(39, 39, 42, 0.32);
+    stroke-linecap: round;
+    stroke-width: 1.35;
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-link.related) {
+    stroke: rgba(37, 99, 235, 0.55);
+    stroke-width: 1.9;
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-link.mention) {
+    stroke-dasharray: 4 4;
+  }
+
+  :global(.dark [data-knowledge-graph] .knowledge-graph-link) {
+    stroke: rgba(255, 255, 255, 0.28);
+  }
+
+  :global(.dark [data-knowledge-graph] .knowledge-graph-link.related) {
+    stroke: rgba(96, 165, 250, 0.65);
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-node) {
+    cursor: pointer;
+    outline: none;
+    transition: opacity 180ms ease;
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-node circle) {
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.14));
+    stroke: rgba(255, 255, 255, 0.92);
+    stroke-width: 1.5;
+    transition:
+      filter 180ms ease,
+      stroke-width 180ms ease;
+  }
+
+  :global(.dark [data-knowledge-graph] .knowledge-graph-node circle) {
+    stroke: rgba(28, 25, 23, 0.92);
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-node text) {
+    fill: rgba(0, 0, 0, 0.72);
+    font-size: 12px;
+    paint-order: stroke;
+    pointer-events: none;
+    stroke: rgb(245, 245, 244);
+    stroke-linejoin: round;
+    stroke-width: 4px;
+  }
+
+  :global(.dark [data-knowledge-graph] .knowledge-graph-node text) {
+    fill: rgba(255, 255, 255, 0.8);
+    stroke: rgb(28, 25, 23);
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-node.is-hovered circle),
+  :global([data-knowledge-graph] .knowledge-graph-node:focus-visible circle) {
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
+    stroke-width: 3;
+  }
+
+  :global([data-knowledge-graph] .knowledge-graph-node.is-match circle) {
+    stroke-width: 2.5;
+  }
+</style>

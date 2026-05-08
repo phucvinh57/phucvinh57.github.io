@@ -1,13 +1,13 @@
 ---
-import { getCollection } from 'astro:content';
-import ArrowCard from '@/components/ArrowCard.astro';
-import Container from '@/components/Container.astro';
-import Link from '@/components/Link.astro';
-import { HOME, SITE } from '@/consts';
-import SiteLayout from '@/layouts/SiteLayout.astro';
-import { getPublishedPosts, sortPosts } from '@/lib/blog';
+import { getCollection } from "astro:content";
+import ArrowCard from "@/components/ArrowCard.astro";
+import Container from "@/components/Container.astro";
+import Link from "@/components/Link.astro";
+import { HOME, SITE } from "@/consts";
+import SiteLayout from "@/layouts/SiteLayout.astro";
+import { getPublishedPosts, sortPosts } from "@/lib/blog";
 
-const posts = sortPosts(getPublishedPosts(await getCollection('blog'))).slice(
+const posts = sortPosts(getPublishedPosts(await getCollection("blog"))).slice(
   0,
   SITE.NUM_POSTS_ON_HOMEPAGE,
 );
@@ -16,22 +16,13 @@ const posts = sortPosts(getPublishedPosts(await getCollection('blog'))).slice(
 <SiteLayout title={HOME.TITLE} description={HOME.DESCRIPTION}>
   <Container>
     <h1 class="animate mb-6 text-lg font-semibold text-black dark:text-white">
-      Hi, I'm Nguyen Phuc Vinh
+      Hi, I'm Vinh
     </h1>
 
     <div class="space-y-16">
-      <section>
-        <div class="space-y-4 leading-7">
-          <p class="animate">
-            I write about software development, systems, and the ideas I want to
-            understand more clearly.
-          </p>
-          <p class="animate">
-            This is a small personal notebook: lightweight, direct, and shaped
-            for quiet reading.
-          </p>
-        </div>
-      </section>
+      <p class="animate">
+        I write about software development, systems and my viewpoints.
+      </p>
 
       <section class="animate space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-y-2">
@@ -39,23 +30,14 @@ const posts = sortPosts(getPublishedPosts(await getCollection('blog'))).slice(
           <Link href="/blog/">See all posts</Link>
         </div>
         <ul class="flex flex-col gap-4">
-          {posts.map((post) => (
-            <li>
-              <ArrowCard post={post} />
-            </li>
-          ))}
+          {
+            posts.map((post) => (
+              <li>
+                <ArrowCard post={post} />
+              </li>
+            ))
+          }
         </ul>
-      </section>
-
-      <section class="animate space-y-4">
-        <h2 class="font-semibold text-black dark:text-white">Let's Connect</h2>
-        <p class="leading-7">
-          If you want to follow what I am building and learning, you can find me
-          on GitHub.
-        </p>
-        <Link href={SITE.GITHUB} external aria-label={`${SITE.NAME} on GitHub`}>
-          github
-        </Link>
       </section>
     </div>
   </Container>

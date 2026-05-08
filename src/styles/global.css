@@ -11,6 +11,7 @@
 }
 
 html {
+  font-size: 18px;
   overflow-y: scroll;
   color-scheme: light;
 }

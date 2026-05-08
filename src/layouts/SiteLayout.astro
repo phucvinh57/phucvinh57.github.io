@@ -1,5 +1,6 @@
 ---
 import { SITE } from '@/consts';
+import BackToTop from '@/components/BackToTop.astro';
 import Footer from '@/components/Footer.astro';
 import Head from '@/components/Head.astro';
 import Header from '@/components/Header.astro';
@@ -18,12 +19,13 @@ const pageTitle = title === SITE.NAME ? title : `${title} | ${SITE.NAME}`;
   <head>
     <Head title={pageTitle} description={description} />
   </head>
-  <body class="flex min-h-screen flex-col bg-stone-100 font-sans text-black/50 antialiased dark:bg-stone-900 dark:text-white/75">
+  <body class="relative flex min-h-screen flex-col bg-stone-100 font-sans text-black/50 antialiased dark:bg-stone-900 dark:text-white/75">
     <Header />
-    <main class="flex-1 py-32">
+    <main class="flex-1 pb-40 pt-32">
       <slot />
     </main>
     <Footer />
+    <BackToTop />
     <script is:inline>
       function readSystemTheme() {
         return window.matchMedia('(prefers-color-scheme: dark)').matches;
