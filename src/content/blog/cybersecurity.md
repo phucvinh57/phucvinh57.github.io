@@ -1,7 +1,7 @@
 ---
 title: "Introduction to Cybersecurity"
 description: "An overview of cybersecurity history, common threats such as phishing, password attacks, and data breaches, and practical prevention strategies."
-pubDate: 2026-05-08
+pubDate: 2026-05-15
 categories:
   - Cybersecurity
 relatedPosts: []

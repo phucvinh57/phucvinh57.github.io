@@ -1,7 +1,7 @@
 ---
 title: "Sapiens: A Brief History of Humankind Review"
 description: "A review of Sapiens by Yuval Noah Harari, exploring the cognitive, agricultural, and scientific revolutions that shaped human history."
-pubDate: 2026-05-08
+pubDate: 2026-03-10
 categories:
   - Book review
   - History
