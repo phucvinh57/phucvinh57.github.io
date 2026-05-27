@@ -2,6 +2,7 @@ export const BLOG_CATEGORIES = [
   'Artificial Intelligence',
   'Book review',
   'Cybersecurity',
+  'Health',
   'Healthcare',
   'History',
   'Life',
