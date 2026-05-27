@@ -1,7 +1,7 @@
 ---
 title: "How Technology Exposes Corruption"
 description: "A reflection on how social media, digital records, artificial intelligence, and blockchain can reveal corruption and improve transparency."
-pubDate: 2026-05-27
+pubDate: 2025-12-
 categories:
   - Technology
   - Artificial Intelligence

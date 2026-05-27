@@ -28,7 +28,7 @@ const dialogControlClass =
     <h2 class="text-xl font-semibold text-black dark:text-white">
       Knowledge graph
     </h2>
-    <p class="text-sm leading-6">
+    <p data-graph-summary data-graph-summary-suffix="" class="text-sm leading-6">
       {graphSummary}.
     </p>
   </div>
@@ -118,7 +118,7 @@ const dialogControlClass =
           <h2 class="text-xl font-semibold text-black dark:text-white">
             Knowledge graph
           </h2>
-          <p class="max-w-xl text-sm leading-6">
+          <p data-graph-summary data-graph-summary-suffix=" in the blog" class="max-w-xl text-sm leading-6">
             {graphSummary} in the blog.
           </p>
         </div>
@@ -130,7 +130,7 @@ const dialogControlClass =
               data-graph-search
               type="search"
               autocomplete="off"
-              placeholder="Find a post or category"
+              placeholder="Find a post, category, or year"
               class="h-8 rounded-md border border-black/15 bg-white/70 px-2.5 text-sm text-black outline-none transition-colors duration-300 placeholder:text-black/35 focus:border-black/35 dark:border-white/20 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35 dark:focus:border-white/40"
             />
           </label>
@@ -316,6 +316,22 @@ const dialogControlClass =
       }).format(new Date(value));
     }
 
+    function pluralize(count, singular, plural = `${singular}s`) {
+      return count === 1 ? singular : plural;
+    }
+
+    function formatGraphSummary(stats) {
+      const postLabel = pluralize(stats.postCount, 'post');
+      const categoryLabel = pluralize(
+        stats.categoryCount,
+        'category',
+        'categories',
+      );
+      const linkLabel = pluralize(stats.linkCount, 'link');
+
+      return `${stats.postCount} ${postLabel}, ${stats.categoryCount} ${categoryLabel}, and ${stats.linkCount} ${linkLabel}`;
+    }
+
     function navigateToNode(node) {
       if (!node?.url) {
         return;
@@ -374,6 +390,11 @@ const dialogControlClass =
         adjacency.get(link.source).add(link.target);
         adjacency.get(link.target).add(link.source);
       }
+
+      const blogSearchState = {
+        query: '',
+        postIds: new Set(nodes.filter((node) => node.type === 'post').map((node) => node.id)),
+      };
 
       const minNodeRadius = 4;
       const maxNodeRadius = 14;
@@ -577,8 +598,16 @@ const dialogControlClass =
       }
 
       function updateSearch() {
-        const query = (searchInput?.value || '').trim().toLowerCase();
+        const rawQuery = blogSearchState.query || '';
+        const query = rawQuery.trim().toLowerCase();
         const matchingIds = new Set();
+        const blogSearchActive = Boolean(query);
+        const blogMatchedPostIds = blogSearchState.postIds;
+        const nodesAllowedByBlogSearch = new Set();
+
+        if (searchInput && searchInput.value !== rawQuery) {
+          searchInput.value = rawQuery;
+        }
 
         for (const node of nodes) {
           node.matchesSearch = !query || matchesNode(node, query);
@@ -588,25 +617,94 @@ const dialogControlClass =
           }
         }
 
+        if (blogSearchActive) {
+          for (const postId of blogMatchedPostIds) {
+            nodesAllowedByBlogSearch.add(postId);
+          }
+
+          for (const link of links) {
+            const sourceMatches = blogMatchedPostIds.has(link.source);
+            const targetMatches = blogMatchedPostIds.has(link.target);
+
+            if (sourceMatches) {
+              nodesAllowedByBlogSearch.add(link.target);
+            }
+
+            if (targetMatches) {
+              nodesAllowedByBlogSearch.add(link.source);
+            }
+          }
+        }
+
         for (const node of nodes) {
+          const matchesBlogSearch =
+            !blogSearchActive || nodesAllowedByBlogSearch.has(node.id);
+
           node.visible =
-            !query ||
-            node.matchesSearch ||
-            [...(adjacency.get(node.id) || [])].some((id) => matchingIds.has(id));
+            matchesBlogSearch &&
+            (!query ||
+              node.matchesSearch ||
+              [...(adjacency.get(node.id) || [])].some((id) => matchingIds.has(id)));
         }
 
         for (const link of links) {
+          const connectsBlogSearchResult =
+            !blogSearchActive ||
+            blogMatchedPostIds.has(link.source) ||
+            blogMatchedPostIds.has(link.target);
+
           link.visible =
             link.sourceNode.visible &&
             link.targetNode.visible &&
+            connectsBlogSearchResult &&
             (!query ||
               link.sourceNode.matchesSearch ||
               link.targetNode.matchesSearch);
         }
 
-        emptyState.hidden = !query || matchingIds.size > 0;
+        emptyState.hidden =
+          (!query && !blogSearchActive) ||
+          (blogSearchActive
+            ? blogMatchedPostIds.size > 0
+            : matchingIds.size > 0);
         state.alpha = 0.8;
         updateDom();
+        updateSummary();
+      }
+
+      function handleBlogSearchUpdate(event) {
+        blogSearchState.query = event.detail?.query || '';
+        blogSearchState.postIds = new Set(event.detail?.postIds || []);
+        updateSearch();
+      }
+
+      function applyLatestBlogSearchState() {
+        if (!window.__blogPostSearchState) {
+          return;
+        }
+
+        blogSearchState.query = window.__blogPostSearchState.query || '';
+        blogSearchState.postIds = new Set(window.__blogPostSearchState.postIds || []);
+      }
+
+      function updateSummary() {
+        const shell = root.closest('[data-knowledge-graph-shell]');
+
+        if (!shell) {
+          return;
+        }
+
+        const visibleNodes = nodes.filter((node) => node.visible);
+        const visibleLinks = links.filter((link) => link.visible);
+        const summary = formatGraphSummary({
+          postCount: visibleNodes.filter((node) => node.type === 'post').length,
+          categoryCount: visibleNodes.filter((node) => node.type === 'category').length,
+          linkCount: visibleLinks.length,
+        });
+
+        shell.querySelectorAll('[data-graph-summary]').forEach((element) => {
+          element.textContent = `${summary}${element.dataset.graphSummarySuffix || ''}.`;
+        });
       }
 
       function updateDom() {
@@ -875,18 +973,27 @@ const dialogControlClass =
         { passive: false },
       );
 
-      searchInput?.addEventListener('input', updateSearch);
+      searchInput?.addEventListener('input', () => {
+        window.dispatchEvent(
+          new CustomEvent('blog-search:set-query', {
+            detail: { query: searchInput.value },
+          }),
+        );
+      });
+      window.addEventListener('blog-post-search:update', handleBlogSearchUpdate);
       resetButton.addEventListener('click', resetPositions);
 
       const resizeObserver = new ResizeObserver(resize);
 
       resizeObserver.observe(svg);
       resize();
+      applyLatestBlogSearchState();
       updateSearch();
       animate();
 
       document.addEventListener('astro:before-swap', () => {
         window.cancelAnimationFrame(state.animationFrame);
+        window.removeEventListener('blog-post-search:update', handleBlogSearchUpdate);
         resizeObserver.disconnect();
       }, { once: true });
     }

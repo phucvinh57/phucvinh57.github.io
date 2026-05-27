@@ -5,7 +5,7 @@ import Container from '@/components/Container.astro';
 import KnowledgeGraph from '@/components/KnowledgeGraph.astro';
 import { BLOG } from '@/consts';
 import SiteLayout from '@/layouts/SiteLayout.astro';
-import { getPublishedPosts, groupPostsByYear } from '@/lib/blog';
+import { getPostSlug, getPublishedPosts, groupPostsByYear } from '@/lib/blog';
 import { buildKnowledgeGraph } from '@/lib/knowledge-graph';
 
 const posts = getPublishedPosts(await getCollection('blog'));
@@ -53,6 +53,7 @@ const postSearchDateFormatter = Intl.DateTimeFormat('en-US', {
                   {yearPosts.map((post) => (
                     <li
                       data-post-search-item
+                      data-post-graph-id={`post:${getPostSlug(post)}`}
                       data-post-search-text={[
                         post.data.title,
                         post.data.description,
@@ -108,7 +109,9 @@ const postSearchDateFormatter = Intl.DateTimeFormat('en-US', {
         const emptyState = root.querySelector('[data-post-empty]');
 
         function updatePosts() {
-          const query = searchInput.value.trim().toLowerCase();
+          const rawQuery = searchInput.value.trim();
+          const query = rawQuery.toLowerCase();
+          const matchingPostIds = [];
           let visibleCount = 0;
 
           for (const item of items) {
@@ -117,6 +120,7 @@ const postSearchDateFormatter = Intl.DateTimeFormat('en-US', {
             item.hidden = !matches;
 
             if (matches) {
+              matchingPostIds.push(item.dataset.postGraphId);
               visibleCount += 1;
             }
           }
@@ -128,9 +132,39 @@ const postSearchDateFormatter = Intl.DateTimeFormat('en-US', {
           if (emptyState) {
             emptyState.hidden = !query || visibleCount > 0;
           }
+
+          window.__blogPostSearchState = {
+            query: rawQuery,
+            postIds: matchingPostIds.filter(Boolean),
+          };
+
+          window.dispatchEvent(
+            new CustomEvent('blog-post-search:update', {
+              detail: window.__blogPostSearchState,
+            }),
+          );
         }
 
-        searchInput.addEventListener('input', updatePosts);
+        function setSearchQuery(query) {
+          const nextQuery = query || '';
+
+          if (searchInput.value !== nextQuery) {
+            searchInput.value = nextQuery;
+          }
+
+          updatePosts();
+        }
+
+        searchInput.addEventListener('input', () => setSearchQuery(searchInput.value));
+        window.addEventListener('blog-search:set-query', (event) => {
+          setSearchQuery(event.detail?.query || '');
+        });
+
+        if (window.__blogPostSearchState?.query) {
+          setSearchQuery(window.__blogPostSearchState.query);
+          return;
+        }
+
         updatePosts();
       }
 
