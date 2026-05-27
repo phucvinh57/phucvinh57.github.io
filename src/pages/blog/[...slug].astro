@@ -69,6 +69,28 @@ const relatedPosts = getRelatedPosts(post, posts);
       <Content />
     </article>
 
+    {post.data.references.length > 0 && (
+      <section class="animate mt-12 border-t border-black/15 pt-8 dark:border-white/20">
+        <h2 class="mb-4 text-lg font-semibold text-black dark:text-white">
+          References
+        </h2>
+        <ul class="list-disc space-y-3 pl-5 marker:text-black/45 dark:marker:text-white/45">
+          {post.data.references.map((reference) => (
+            <li>
+              <Link href={reference.url}>
+                {reference.title}
+              </Link>
+              {reference.description && (
+                <p class="mt-1 text-sm text-black/65 dark:text-white/65">
+                  {reference.description}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
     {relatedPosts.length > 0 && (
       <section class="animate mt-12 border-t border-black/15 pt-8 dark:border-white/20">
         <h2 class="mb-4 text-lg font-semibold text-black dark:text-white">

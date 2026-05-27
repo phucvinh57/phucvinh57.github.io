@@ -51,6 +51,12 @@ interface ReferenceCandidate {
   description?: string;
 }
 
+interface FrontmatterReference {
+  title: string;
+  url: string;
+  description?: string;
+}
+
 function safelyDecode(value: string) {
   try {
     return decodeURIComponent(value);
@@ -132,6 +138,27 @@ function extractReferences(body: string) {
   }
 
   return [...references.values()];
+}
+
+function getReferenceFromFrontmatter(
+  reference: FrontmatterReference,
+): ReferenceCandidate {
+  const blogReference = getBlogReferenceFromUrl(reference.url);
+
+  if (blogReference) {
+    return {
+      reference: blogReference,
+      label: reference.title,
+      description: reference.description,
+    };
+  }
+
+  return {
+    reference: reference.url,
+    label: reference.title,
+    url: reference.url,
+    description: reference.description || 'External reference.',
+  };
 }
 
 function createLinkId(
@@ -226,6 +253,16 @@ export function buildKnowledgeGraph(posts: BlogPost[]): KnowledgeGraphData {
         : addReferenceNode(relatedPostReference);
 
       addLink(postId, relatedPostId, 'related', 2);
+    }
+
+    for (const reference of post.data.references) {
+      const candidate = getReferenceFromFrontmatter(reference);
+      const referencedPost = resolvePost(candidate.reference);
+      const referencedPostId = referencedPost
+        ? `post:${getPostSlug(referencedPost)}`
+        : addReferenceNode(candidate);
+
+      addLink(postId, referencedPostId, 'mention', 1.5);
     }
 
     for (const reference of extractReferences(post.body ?? '')) {

@@ -10,6 +10,15 @@ const blog = defineCollection({
     pubDate: z.coerce.date(),
     categories: z.array(z.string()).min(1),
     relatedPosts: z.array(z.string()).default([]),
+    references: z
+      .array(
+        z.object({
+          title: z.string(),
+          url: z.url(),
+          description: z.string().optional(),
+        }),
+      )
+      .default([]),
     draft: z.boolean().optional(),
   }),
 });

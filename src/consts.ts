@@ -1,12 +1,12 @@
 export const SITE = {
   NAME: 'Nguyen Phuc Vinh',
-  DESCRIPTION: 'Personal blog by Nguyen Phuc Vinh about software development and ideas learned along the way.',
+  DESCRIPTION: 'My personal blog for sharing random ideas, notes, and projects, and practicing English writing.',
   URL: 'https://phucvinh57.github.io',
   GITHUB: 'https://github.com/phucvinh57',
   FACEBOOK: 'https://facebook.com/npvinh.0507',
   LINKEDIN: 'https://www.linkedin.com/in/npvinh57/',
   EMAIL: 'npvinh0507@gmail.com',
-  NUM_POSTS_ON_HOMEPAGE: 3,
+  NUM_POSTS_ON_HOMEPAGE: 4,
 };
 
 export const HOME = {
