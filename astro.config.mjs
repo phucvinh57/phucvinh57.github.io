@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
 import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
@@ -10,16 +11,18 @@ export default defineConfig({
   site: 'https://phucvinh57.github.io',
   integrations: [mdx(), sitemap()],
   markdown: {
-    remarkPlugins: [
-      [
-        remarkWikiLinks,
-        {
-          contentDirectory: fileURLToPath(
-            new URL('./src/content/blog', import.meta.url),
-          ),
-        },
+    processor: unified({
+      remarkPlugins: [
+        [
+          remarkWikiLinks,
+          {
+            contentDirectory: fileURLToPath(
+              new URL('./src/content/blog', import.meta.url),
+            ),
+          },
+        ],
       ],
-    ],
+    }),
   },
   vite: {
     plugins: [tailwindcss()],
