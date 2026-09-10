@@ -20,7 +20,7 @@
     "@fontsource/lora": "^5.2.8",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.2",
-    "astro": "7.1.0",
+    "astro": "7.2.8",
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
